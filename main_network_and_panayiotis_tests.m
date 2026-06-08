@@ -1,8 +1,9 @@
 %% main_network_and_panayiotis_tests.m
 % This script does two things:
 %
-% Part 1: Arbitrary HP memristor network using matrix/nodal analysis.
-%         Runs same initial states and different initial states.
+% Part 1: HP memristor one-port comparison using matrix/nodal analysis.
+%         Compares one memristor, 2 in series, 2 in parallel, and a
+%         5-memristor bridge-style network.
 %
 % Part 2: Panayiotis-style analytical HP expressions for:
 %         - voltage-driven series network
@@ -46,196 +47,308 @@ params.Ddev = 10e-9;
 params.eta  = -1;
 
 %% ============================================================
-% Arbitrary network topology
+% PART 1: Topology comparison
 % ============================================================
-% Each row is one memristor branch: [start_node end_node]
-%
-% Network:
-%
-%        M1
-%   1 -------- 2
-%   | \        |
-% M4|  \M3     |M2
-%   |    \     |
-%   4 -------- 3
-%        M5
-%
-% Port voltage applied between node 1 and node 3.
+% Each row of a branch matrix is one memristor branch: [start_node end_node].
+% The equivalent one-port memristance is calculated as M_eff(t)=V_in/I_port.
 
-branches = [
-    1 2;   % M1
-    2 3;   % M2
-    1 3;   % M3
-    1 4;   % M4
-    4 3    % M5
-];
+case_names = { ...
+    'Single memristor', ...
+    'Two memristors in series', ...
+    'Two memristors in parallel', ...
+    'Five-memristor network'};
 
-num_nodes = 4;
-port_pos = 1;
-port_neg = 3;
+case_branches = { ...
+    [1 2], ...
+    [1 2; 2 3], ...
+    [1 2; 1 2], ...
+    [1 2; 2 3; 1 3; 1 4; 4 3]};
+
+case_num_nodes = [2 3 2 4];
+case_port_pos = [1 1 1 1];
+case_port_neg = [2 3 2 3];
+
+num_cases = numel(case_names);
+case_out = cell(num_cases,1);
+case_x0 = cell(num_cases,1);
+
+for c = 1:num_cases
+    num_memristors = size(case_branches{c},1);
+    case_x0{c} = 0.3 * ones(num_memristors,1);
+
+    case_out{c} = simulate_arbitrary_HP_network( ...
+        t, V_in, case_branches{c}, case_num_nodes(c), ...
+        case_port_pos(c), case_port_neg(c), params, case_x0{c});
+end
+
+single_out = case_out{1};
 
 %% ============================================================
-% PART 1A: Arbitrary network, same initial state
-% ============================================================
-x0_same = 0.3 * ones(size(branches,1),1);
-
-out_same = simulate_arbitrary_HP_network( ...
-    t, V_in, branches, num_nodes, port_pos, port_neg, params, x0_same);
-
-%% ============================================================
-% PART 1B: Arbitrary network, different initial states
-% ============================================================
-x0_diff = [0.25; 0.35; 0.45; 0.30; 0.40];
-
-out_diff = simulate_arbitrary_HP_network( ...
-    t, V_in, branches, num_nodes, port_pos, port_neg, params, x0_diff);
-
-%% ============================================================
-% Plot arbitrary-network results
+% Plot topology comparison results
 % ============================================================
 period = 1/f;
 idx_final = t >= (t(end) - period);
 
-% Figure 1: topology
+% Figure 1: compared topologies
 figure;
-plot_network_topology(num_nodes, branches, port_pos, port_neg);
-title('Arbitrary memristor network topology');
+for c = 1:num_cases
+    subplot(2,2,c);
+    plot_network_topology(case_num_nodes(c), case_branches{c}, ...
+        case_port_pos(c), case_port_neg(c));
+    title(case_names{c});
+end
 
-% Figure 2: I-V same vs different initial states
+% Figure 2: terminal I-V comparison
 figure;
-plot(V_in(idx_final), out_same.I_port(idx_final), 'LineWidth', 0.9);
 hold on;
-plot(V_in(idx_final), out_diff.I_port(idx_final), '--', 'LineWidth', 0.9);
+for c = 1:num_cases
+    plot(V_in(idx_final), case_out{c}.I_port(idx_final), ...
+        'LineWidth', 0.9, 'DisplayName', case_names{c});
+end
 hold off;
 xlabel('Port voltage, v_P(t) [V]');
 ylabel('Port current, i_P(t) [A]');
-title('Terminal I-V response: same vs different initial states');
-legend('Same initial states','Different initial states','Location','best');
+title('Terminal I-V response: single memristor vs networks');
+legend('Location','best');
 grid on; box on;
 
-% Figure 3: q-phi same vs different initial states
+% Figure 3: effective memristance comparison
 figure;
-plot(out_same.q_port, out_same.phi_port, 'LineWidth', 0.9);
 hold on;
-plot(out_diff.q_port, out_diff.phi_port, '--', 'LineWidth', 0.9);
+for c = 1:num_cases
+    plot(t, case_out{c}.M_eff, ...
+        'LineWidth', 0.9, 'DisplayName', case_names{c});
+end
 hold off;
-xlabel('Port charge, q_P(t) [C]');
-ylabel('Port flux, \phi_P(t) [Wb]');
-title('Port flux-charge response');
-legend('Same initial states','Different initial states','Location','best');
+xlabel('Time [s]');
+ylabel('Effective memristance, M_{eff}(t) [\Omega]');
+title('Equivalent one-port memristance');
+legend('Location','best');
 grid on; box on;
 
-% Figure 4: effective conductance fingerprint comparison
+% Figure 4: difference from a single memristor
 figure;
-plot(t, out_same.G_eff, 'LineWidth', 0.9);
 hold on;
-plot(t, out_diff.G_eff, '--', 'LineWidth', 0.9);
+for c = 2:num_cases
+    delta_M = case_out{c}.M_eff - single_out.M_eff;
+    plot(t, delta_M, 'LineWidth', 0.9, ...
+        'DisplayName', sprintf('%s minus single', case_names{c}));
+end
+yline(0,'k:','Single memristor baseline');
+hold off;
+xlabel('Time [s]');
+ylabel('\Delta M_{eff}(t) [\Omega]');
+title('How much each topology differs from one memristor');
+legend('Location','best');
+grid on; box on;
+
+% Figure 5: effective conductance comparison
+figure;
+hold on;
+for c = 1:num_cases
+    plot(t, case_out{c}.G_eff, ...
+        'LineWidth', 0.9, 'DisplayName', case_names{c});
+end
 hold off;
 xlabel('Time [s]');
 ylabel('Effective conductance, G_{eff}(t) [S]');
 title('Equivalent conductance fingerprint');
-legend('Same initial states','Different initial states','Location','best');
+legend('Location','best');
 grid on; box on;
 
-% Figure 5: state evolution for same initial state
+% Figure 6: port q-phi comparison
 figure;
-plot(t, out_same.x', 'LineWidth', 0.9);
-xlabel('Time [s]');
-ylabel('State variable, x_m(t)');
-title('State evolution, same initial states');
-legend('M1','M2','M3','M4','M5','Location','best');
-grid on; box on;
-
-% Figure 6: state evolution for different initial states
-figure;
-plot(t, out_diff.x', 'LineWidth', 0.9);
-xlabel('Time [s]');
-ylabel('State variable, x_m(t)');
-title('State evolution, different initial states');
-legend('M1','M2','M3','M4','M5','Location','best');
-grid on; box on;
-
-% Figure 7: branch currents, same initial state
-figure;
-plot(t, out_same.I_branch', 'LineWidth', 0.9);
-xlabel('Time [s]');
-ylabel('Branch current [A]');
-title('Individual branch currents, same initial states');
-legend('I_1','I_2','I_3','I_4','I_5','Location','best');
-grid on; box on;
-
-% Figure 8: effective memristance comparison
-figure;
-plot(t, out_same.M_eff, 'LineWidth', 0.9);
 hold on;
-plot(t, out_diff.M_eff, '--', 'LineWidth', 0.9);
+for c = 1:num_cases
+    plot(case_out{c}.q_port, case_out{c}.phi_port, ...
+        'LineWidth', 0.9, 'DisplayName', case_names{c});
+end
 hold off;
-xlabel('Time [s]');
-ylabel('Effective memristance, M_{eff}(t) [\Omega]');
-title('Time-domain effective memristance');
-legend('Same initial states','Different initial states','Location','best');
+xlabel('Port charge, q_P(t) [C]');
+ylabel('Port flux, \phi_P(t) [Wb]');
+title('Port flux-charge response');
+legend('Location','best');
 grid on; box on;
+
+% Standalone figures for each topology.
+for c = 1:num_cases
+
+    % Individual topology figure.
+    figure;
+    plot_network_topology(case_num_nodes(c), case_branches{c}, ...
+        case_port_pos(c), case_port_neg(c));
+    title(sprintf('%s topology', case_names{c}));
+
+    % Individual I-V figure.
+    figure;
+    plot(V_in(idx_final), case_out{c}.I_port(idx_final), ...
+        'LineWidth', 0.9, 'DisplayName', case_names{c});
+    hold on;
+    if c > 1
+        plot(V_in(idx_final), single_out.I_port(idx_final), 'k--', ...
+            'LineWidth', 0.9, 'DisplayName', 'Single memristor baseline');
+    end
+    hold off;
+    xlabel('Port voltage, v_P(t) [V]');
+    ylabel('Port current, i_P(t) [A]');
+    title(sprintf('%s: terminal I-V response', case_names{c}));
+    legend('Location','best');
+    grid on; box on;
+
+    % Individual effective memristance figure.
+    figure;
+    plot(t, case_out{c}.M_eff, ...
+        'LineWidth', 0.9, 'DisplayName', case_names{c});
+    hold on;
+    if c > 1
+        plot(t, single_out.M_eff, 'k--', ...
+            'LineWidth', 0.9, 'DisplayName', 'Single memristor baseline');
+    end
+    hold off;
+    xlabel('Time [s]');
+    ylabel('Effective memristance, M_{eff}(t) [\Omega]');
+    title(sprintf('%s: equivalent one-port memristance', case_names{c}));
+    legend('Location','best');
+    grid on; box on;
+
+    % Individual q-phi figure.
+    figure;
+    plot(case_out{c}.q_port, case_out{c}.phi_port, ...
+        'LineWidth', 0.9, 'DisplayName', case_names{c});
+    hold on;
+    if c > 1
+        plot(single_out.q_port, single_out.phi_port, 'k--', ...
+            'LineWidth', 0.9, 'DisplayName', 'Single memristor baseline');
+    end
+    hold off;
+    xlabel('Port charge, q_P(t) [C]');
+    ylabel('Port flux, \phi_P(t) [Wb]');
+    title(sprintf('%s: port flux-charge response', case_names{c}));
+    legend('Location','best');
+    grid on; box on;
+
+    % Individual difference figure for non-single topologies.
+    if c > 1
+        figure;
+        delta_M = case_out{c}.M_eff - single_out.M_eff;
+        plot(t, delta_M, 'LineWidth', 0.9, ...
+            'DisplayName', sprintf('%s minus single', case_names{c}));
+        yline(0,'k:','Single memristor baseline');
+        xlabel('Time [s]');
+        ylabel('\Delta M_{eff}(t) [\Omega]');
+        title(sprintf('%s: difference from one memristor', case_names{c}));
+        legend('Location','best');
+        grid on; box on;
+    end
+end
 
 %% ============================================================
 % PART 2: Panayiotis analytical HP series and parallel formulas
 % ============================================================
-% These are analytical HP expressions.
-% They are separate from the arbitrary nodal network simulation above.
+% These are the voltage-driven analytical HP expressions from the table.
+% They are compared against the numerical nodal results for:
+%   - two memristors in series
+%   - two memristors in parallel
 
-num_HP = 3;                      % number of memristors in analytical network
+num_HP = 2;                      % compare against the two-device cases
 x0_analytical = 0.3 * ones(num_HP,1);
 
 M0 = params.Ron*x0_analytical + params.Roff*(1 - x0_analytical);
 
-% HP coefficient using sign convention:
-% M(q) = M0 - k*q
-k2 = (params.Roff - params.Ron) * params.mu * params.Ron / params.Ddev^2;
-k_vec = k2 * ones(num_HP,1);
+% The analytical table uses M(q)=M0-k*q.
+% The numerical model uses eta=-1, which gives the matching signed k below.
+k_abs = (params.Roff - params.Ron) * params.mu * params.Ron / params.Ddev^2;
+k_vec = -k_abs * ones(num_HP,1);
 
 analytical = panayiotis_HP_analytical(t, V_in, I_in, M0, k_vec);
 
+series_case = 2;
+parallel_case = 3;
+
+series_I_error = case_out{series_case}.I_port - analytical.I_series_V;
+parallel_I_error = case_out{parallel_case}.I_port - analytical.I_parallel_V;
+
+series_M_error = case_out{series_case}.M_eff - analytical.M_series_V;
+parallel_M_error = case_out{parallel_case}.M_eff - analytical.M_parallel_V;
+
 %% ============================================================
-% Plot Panayiotis analytical results
+% Plot numerical vs analytical voltage-driven results
 % ============================================================
 
-% Figure 9: voltage-driven series I-V
+% Numerical vs analytical voltage-driven series I-V.
 figure;
-plot(V_in(idx_final), analytical.I_series_V(idx_final), 'LineWidth', 0.9);
+plot(V_in(idx_final), case_out{series_case}.I_port(idx_final), ...
+    'LineWidth', 0.9, 'DisplayName', 'Numerical nodal');
+hold on;
+plot(V_in(idx_final), analytical.I_series_V(idx_final), '--', ...
+    'LineWidth', 0.9, 'DisplayName', 'Analytical');
+hold off;
 xlabel('Voltage input, v(t) [V]');
 ylabel('Current output, i(t) [A]');
-title('Panayiotis HP: voltage-driven series network');
+title('Two memristors in series: numerical vs analytical I-V');
+legend('Location','best');
 grid on; box on;
 
-% Figure 10: voltage-driven parallel I-V
+% Numerical vs analytical voltage-driven parallel I-V.
 figure;
-plot(V_in(idx_final), analytical.I_parallel_V(idx_final), 'LineWidth', 0.9);
+plot(V_in(idx_final), case_out{parallel_case}.I_port(idx_final), ...
+    'LineWidth', 0.9, 'DisplayName', 'Numerical nodal');
+hold on;
+plot(V_in(idx_final), analytical.I_parallel_V(idx_final), '--', ...
+    'LineWidth', 0.9, 'DisplayName', 'Analytical');
+hold off;
 xlabel('Voltage input, v(t) [V]');
 ylabel('Current output, i(t) [A]');
-title('Panayiotis HP: voltage-driven parallel network');
+title('Two memristors in parallel: numerical vs analytical I-V');
+legend('Location','best');
 grid on; box on;
 
-% Figure 11: current-driven series response
+% Effective memristance: numerical vs analytical.
 figure;
-plot(t, I_in, 'LineWidth', 0.9);
+plot(t, case_out{series_case}.M_eff, 'LineWidth', 0.9, ...
+    'DisplayName', 'Series numerical');
 hold on;
-plot(t, analytical.V_series_I, '--', 'LineWidth', 0.9);
+plot(t, analytical.M_series_V, '--', 'LineWidth', 0.9, ...
+    'DisplayName', 'Series analytical');
+plot(t, case_out{parallel_case}.M_eff, 'LineWidth', 0.9, ...
+    'DisplayName', 'Parallel numerical');
+plot(t, analytical.M_parallel_V, '--', 'LineWidth', 0.9, ...
+    'DisplayName', 'Parallel analytical');
 hold off;
 xlabel('Time [s]');
-ylabel('Signal');
-title('Panayiotis HP: current-driven series network');
-legend('Input current i(t) [A]','Output voltage v(t) [V]','Location','best');
+ylabel('Equivalent memristance [\Omega]');
+title('Voltage-driven equivalent memristance: numerical vs analytical');
+legend('Location','best');
 grid on; box on;
 
-% Figure 12: compare effective memristances
+% Current error over time.
 figure;
-plot(t, analytical.M_series_V, 'LineWidth', 0.9);
+plot(t, series_I_error, 'LineWidth', 0.9, ...
+    'DisplayName', 'Series: numerical - analytical');
 hold on;
-plot(t, analytical.M_parallel_V, '--', 'LineWidth', 0.9);
+plot(t, parallel_I_error, '--', 'LineWidth', 0.9, ...
+    'DisplayName', 'Parallel: numerical - analytical');
+yline(0,'k:');
 hold off;
 xlabel('Time [s]');
-ylabel('Analytical equivalent memristance [\Omega]');
-title('Analytical equivalent memristance: series vs parallel');
-legend('Voltage-driven series','Voltage-driven parallel','Location','best');
+ylabel('Current error [A]');
+title('Numerical minus analytical current error');
+legend('Location','best');
+grid on; box on;
+
+% Effective memristance error over time.
+figure;
+plot(t, series_M_error, 'LineWidth', 0.9, ...
+    'DisplayName', 'Series: numerical - analytical');
+hold on;
+plot(t, parallel_M_error, '--', 'LineWidth', 0.9, ...
+    'DisplayName', 'Parallel: numerical - analytical');
+yline(0,'k:');
+hold off;
+xlabel('Time [s]');
+ylabel('M_{eff} error [\Omega]');
+title('Numerical minus analytical memristance error');
+legend('Location','best');
 grid on; box on;
 
 %% ============================================================
@@ -243,26 +356,44 @@ grid on; box on;
 % ============================================================
 fprintf('\n================ SUMMARY ================\n');
 
-fprintf('\nArbitrary network, same initial states:\n');
-fprintf('Initial states: x0 = ');
-fprintf('%.2f ', x0_same);
-fprintf('\nInitial memristance for each device: %.2f ohm\n', ...
-    params.Ron*x0_same(1) + params.Roff*(1-x0_same(1)));
-fprintf('M_eff range: %.2f to %.2f ohm\n', ...
-    min(out_same.M_eff,[],'omitnan'), max(out_same.M_eff,[],'omitnan'));
+fprintf('\nTopology comparison under the same voltage input:\n');
+for c = 1:num_cases
+    I_last = case_out{c}.I_port(idx_final);
+    V_last = V_in(idx_final);
+    loop_area = abs(trapz(V_last,I_last));
 
-fprintf('\nArbitrary network, different initial states:\n');
-fprintf('Initial states: x0 = ');
-fprintf('%.2f ', x0_diff);
-fprintf('\nM_eff range: %.2f to %.2f ohm\n', ...
-    min(out_diff.M_eff,[],'omitnan'), max(out_diff.M_eff,[],'omitnan'));
+    fprintf('\n%s:\n', case_names{c});
+    fprintf('Number of memristors = %d\n', size(case_branches{c},1));
+    fprintf('Initial states: x0 = ');
+    fprintf('%.2f ', case_x0{c});
+    fprintf('\nM_eff range: %.2f to %.2f ohm\n', ...
+        min(case_out{c}.M_eff,[],'omitnan'), ...
+        max(case_out{c}.M_eff,[],'omitnan'));
+    fprintf('Final-cycle I-V loop area = %.4e VA\n', loop_area);
+
+    if c > 1
+        delta_M = case_out{c}.M_eff - single_out.M_eff;
+        fprintf('Difference from single M_eff range: %.2f to %.2f ohm\n', ...
+            min(delta_M,[],'omitnan'), max(delta_M,[],'omitnan'));
+    end
+end
 
 fprintf('\nPanayiotis analytical formulas implemented:\n');
-fprintf('- voltage-driven series HP network\n');
-fprintf('- current-driven series HP network\n');
-fprintf('- voltage-driven parallel HP network\n');
+fprintf('- voltage-driven series HP network, compared to numerical 2-series case\n');
+fprintf('- voltage-driven parallel HP network, compared to numerical 2-parallel case\n');
+fprintf('- current-driven series HP network retained in the helper function\n');
 fprintf('- current-driven parallel HP network is not analytically implemented\n');
 fprintf('  because it requires inversion of q(phi) to phi(q).\n');
+
+fprintf('\nNumerical vs analytical voltage-driven errors:\n');
+fprintf('Series max |current error| = %.4e A\n', ...
+    max(abs(series_I_error),[],'omitnan'));
+fprintf('Parallel max |current error| = %.4e A\n', ...
+    max(abs(parallel_I_error),[],'omitnan'));
+fprintf('Series max |M_eff error| = %.4e ohm\n', ...
+    max(abs(series_M_error),[],'omitnan'));
+fprintf('Parallel max |M_eff error| = %.4e ohm\n', ...
+    max(abs(parallel_M_error),[],'omitnan'));
 
 %% ============================================================
 % Local functions
@@ -522,10 +653,34 @@ function plot_network_topology(num_nodes, branches, port_pos, port_neg)
         xb = coords(b,1);
         yb = coords(b,2);
 
-        plot([xa xb],[ya yb],'-','LineWidth',1.2);
+        branch_pairs = sort(branches,2);
+        same_pair = find(branch_pairs(:,1) == min(a,b) & ...
+            branch_pairs(:,2) == max(a,b));
+        duplicate_position = find(same_pair == m);
+        duplicate_count = numel(same_pair);
 
-        xm = (xa+xb)/2;
-        ym = (ya+yb)/2;
+        dx = xb - xa;
+        dy = yb - ya;
+        branch_length = hypot(dx,dy);
+
+        if branch_length > 0
+            nx = -dy / branch_length;
+            ny = dx / branch_length;
+        else
+            nx = 0;
+            ny = 0;
+        end
+
+        offset = 0.08 * (duplicate_position - (duplicate_count + 1)/2);
+        xa_plot = xa + offset*nx;
+        ya_plot = ya + offset*ny;
+        xb_plot = xb + offset*nx;
+        yb_plot = yb + offset*ny;
+
+        plot([xa_plot xb_plot],[ya_plot yb_plot],'-','LineWidth',1.2);
+
+        xm = (xa_plot+xb_plot)/2;
+        ym = (ya_plot+yb_plot)/2;
 
         text(xm,ym,sprintf('M%d',m), ...
             'HorizontalAlignment','center', ...
