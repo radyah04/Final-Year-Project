@@ -39,8 +39,8 @@ V = A_main*sin(2*pi*f_main*t);   % clean sinusoid input
 G_ON  = 1e-3;       % S
 G_OFF = 1e-5;       % S
 X0    = 0.1;        % initial normalized state
-tau   = 1e-3;       % time constant
-beta  = 50;         % switching steepness
+tau   = 2e-3;       % slower time constant to exaggerate nonlinear response
+beta  = 25;         % reduced sigmoid steepness
 V_on  = 0.27;       % positive threshold
 V_off = 0.27;       % negative threshold
 

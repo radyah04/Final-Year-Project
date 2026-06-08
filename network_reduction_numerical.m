@@ -18,6 +18,17 @@ cols = [C.pink; C.blue; C.green; C.yellow; C.lilac; C.peach];
 
 make_extra_plots = true;
 
+outdir = 'results/figures/network_reduction_numerical';
+if ~exist('results','dir')
+    mkdir('results');
+end
+if ~exist('results/figures','dir')
+    mkdir('results/figures');
+end
+if ~exist(outdir,'dir')
+    mkdir(outdir);
+end
+
 set(groot,'defaultFigureColor','w');
 set(groot,'defaultAxesColor','w');
 set(groot,'defaultAxesFontName','Times New Roman');
@@ -93,6 +104,7 @@ ylabel('Port current, i_P(t) [A]');
 title('Numerical terminal I-V comparison');
 legend('Location','best');
 grid on; box on;
+format_and_save_figure(gcf, fullfile(outdir,'network_reduction_IV_comparison'));
 
 %% Figure 2: numerical effective memristance
 figure;
@@ -108,6 +120,7 @@ ylabel('Effective memristance, M_{eff}(t) [\Omega]');
 title('Numerical one-port memristance');
 legend('Location','best');
 grid on; box on;
+format_and_save_figure(gcf, fullfile(outdir,'network_reduction_Meff_comparison'));
 
 %% Figure 3: difference from one memristor
 figure;
@@ -125,6 +138,7 @@ ylabel('\Delta M_{eff}(t) [\Omega]');
 title('Numerical difference from one memristor');
 legend('Location','best');
 grid on; box on;
+format_and_save_figure(gcf, fullfile(outdir,'network_reduction_Meff_difference_from_single'));
 
 %% Extra numerical plots
 if make_extra_plots
@@ -137,6 +151,7 @@ if make_extra_plots
             case_port_pos(c), case_port_neg(c), C);
         title(case_names{c});
     end
+    format_and_save_figure(gcf, fullfile(outdir,'network_reduction_topologies'));
 
     % Figure 5: effective conductance comparison.
     figure;
@@ -152,6 +167,7 @@ if make_extra_plots
     title('Numerical effective conductance fingerprint');
     legend('Location','best');
     grid on; box on;
+    format_and_save_figure(gcf, fullfile(outdir,'network_reduction_Geff_comparison'));
 
     % Figure 6: port flux-charge comparison.
     figure;
@@ -167,6 +183,7 @@ if make_extra_plots
     title('Numerical port flux-charge response');
     legend('Location','best');
     grid on; box on;
+    format_and_save_figure(gcf, fullfile(outdir,'network_reduction_qphi_comparison'));
 
     % Figure 7: voltage and terminal current for each topology.
     figure;
@@ -192,6 +209,7 @@ if make_extra_plots
     title('Input voltage and numerical port currents');
     legend('Location','best');
     grid on; box on;
+    format_and_save_figure(gcf, fullfile(outdir,'network_reduction_voltage_and_port_currents'));
 
     five_case = 4;
     branch_cols = [C.pink; C.blue; C.green; C.yellow; C.lilac];
@@ -210,6 +228,7 @@ if make_extra_plots
     title('Five-memristor network state evolution');
     legend('Location','best');
     grid on; box on;
+    format_and_save_figure(gcf, fullfile(outdir,'network_reduction_five_network_states'));
 
     % Figure 9: five-memristor branch currents.
     figure;
@@ -225,6 +244,7 @@ if make_extra_plots
     title('Five-memristor network branch currents');
     legend('Location','best');
     grid on; box on;
+    format_and_save_figure(gcf, fullfile(outdir,'network_reduction_five_network_branch_currents'));
 
     % Figure 10: five-memristor individual memristances.
     figure;
@@ -240,6 +260,7 @@ if make_extra_plots
     title('Five-memristor individual memristances');
     legend('Location','best');
     grid on; box on;
+    format_and_save_figure(gcf, fullfile(outdir,'network_reduction_five_network_individual_memristances'));
 end
 
 %% Numerical summary

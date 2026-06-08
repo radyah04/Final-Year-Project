@@ -14,6 +14,17 @@ clear; close all; clc;
 %% Plot settings
 C = pastel_palette_report();
 
+outdir = 'results/figures/analytical_vs_numerical_HP_comparison';
+if ~exist('results','dir')
+    mkdir('results');
+end
+if ~exist('results/figures','dir')
+    mkdir('results/figures');
+end
+if ~exist(outdir,'dir')
+    mkdir(outdir);
+end
+
 set(groot,'defaultFigureColor','w');
 set(groot,'defaultAxesColor','w');
 set(groot,'defaultAxesFontName','Times New Roman');
@@ -88,6 +99,7 @@ ylabel('Current output, i(t) [A]');
 title('Two memristors in series: numerical vs analytical');
 legend('Location','best');
 grid on; box on;
+format_and_save_figure(gcf, fullfile(outdir,'analytical_vs_numerical_series_IV'));
 
 %% Figure 2: parallel I-V numerical vs analytical
 figure;
@@ -104,6 +116,7 @@ ylabel('Current output, i(t) [A]');
 title('Two memristors in parallel: numerical vs analytical');
 legend('Location','best');
 grid on; box on;
+format_and_save_figure(gcf, fullfile(outdir,'analytical_vs_numerical_parallel_IV'));
 
 %% Figure 3: effective memristance numerical vs analytical
 figure;
@@ -126,6 +139,7 @@ ylabel('Equivalent memristance [\Omega]');
 title('Equivalent memristance: numerical vs analytical');
 legend('Location','best');
 grid on; box on;
+format_and_save_figure(gcf, fullfile(outdir,'analytical_vs_numerical_Meff'));
 
 %% Figure 4: current error
 figure;
@@ -143,6 +157,7 @@ ylabel('Current error [A]');
 title('Current error');
 legend('Location','best');
 grid on; box on;
+format_and_save_figure(gcf, fullfile(outdir,'analytical_vs_numerical_current_error'));
 
 %% Figure 5: effective memristance error
 figure;
@@ -160,6 +175,7 @@ ylabel('M_{eff} error [\Omega]');
 title('Effective memristance error');
 legend('Location','best');
 grid on; box on;
+format_and_save_figure(gcf, fullfile(outdir,'analytical_vs_numerical_Meff_error'));
 
 %% Summary
 fprintf('\n================ ANALYTICAL VS NUMERICAL ================\n');

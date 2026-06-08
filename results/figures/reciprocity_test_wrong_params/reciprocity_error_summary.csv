@@ -1,0 +1,8 @@
+Model,CurrentDriveMismatch,RMSE_V,MaxAbsError_V
+HP v1,"R0 x1.35, k_eff x0.55",0.18845051918406,0.288319805956326
+HP v2,"R0 x1.35, k_eff x0.55",0.18845051918406,0.288319805956326
+HP v3,"x0 -> 0.35, mu x1.80",0.807179635318268,1.84868661973331
+Joglekar,"x0 -> 0.65, mu x1.40, p -> 2",0.234937580595633,0.352619157370381
+Prodromakis,"x0 -> 0.45, mu x1.40, p1 -> 0.55, p2 -> 4",0.314092008340011,0.446635115668968
+Chalcogenide/MSS,"X0 -> 0.45, tau -> 1.5e-3, beta -> 20, thresholds shifted",0.475797402998255,0.973755716229166
+Chalcogenide/MSS nonlinear,"X0 -> 0.55, tau -> 0.8e-3, beta -> 40, thresholds shifted",2.26188151395343,6.2711949432479
